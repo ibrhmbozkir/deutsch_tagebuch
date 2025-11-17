@@ -167,6 +167,19 @@ button {
   box-shadow: 0 8px 18px rgba(37, 99, 235, 0.35);
 }
 
+.btn-ghost-small {
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.9);
+  font-size: 11px;
+  background: rgba(248, 250, 252, 0.95);
+  color: #111827;
+}
+
+.btn-ghost-small:hover {
+  background: #e5e7eb;
+}
+
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -212,7 +225,7 @@ button {
 .entries::-webkit-scrollbar {
   width: 6px;
 }
-.entries::-webkit-scrollbar-thumb {
+entries::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.7);
   border-radius: 999px;
 }
@@ -523,6 +536,70 @@ button {
 .sentence-with-hint:hover::after {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* ===== API Key Panel ===== */
+
+.apikey-panel {
+  position: fixed;
+  right: 24px;
+  top: 24px;
+  width: 280px;
+  max-width: calc(100% - 32px);
+  background: rgba(15, 23, 42, 0.98);
+  color: #e5e7eb;
+  border-radius: 18px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.7);
+  padding: 10px 12px 10px;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 50;
+  border: 1px solid rgba(148, 163, 184, 0.8);
+}
+
+.apikey-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.apikey-close {
+  background: transparent;
+  border: none;
+  color: #e5e7eb;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.apikey-hint {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.apikey-panel input[type="password"] {
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.9);
+  padding: 6px 9px;
+  font-size: 12px;
+  background: rgba(15, 23, 42, 0.96);
+  color: #e5e7eb;
+  outline: none;
+}
+
+.apikey-panel input[type="password"]:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.5);
+}
+
+.apikey-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 @media (max-width: 768px) {
