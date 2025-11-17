@@ -2,130 +2,128 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Mein Deutsch-Tagebuch | Ibrahim</title>
+  <title>Mein Deutsch-Tagebuch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="assets/styles.css" />
-  <!-- v=4: cache sorununu önlemek için -->
-  <script src="assets/app.js?v=4" defer></script>
 </head>
 <body>
-  <main class="page">
-    <header>
-      <div class="title-block">
-        <div class="title-pill">
+  <div class="page">
+    <header class="page-header">
+      <div class="page-header-top">
+        <div class="badge-pill badge-pill--brand">
           <span class="dot"></span>
-          <span>Deutsch lernen · Notizen · Bilder</span>
+          DEUTSCH LERNEN · NOTIZEN · BILDER
         </div>
-        <h1>
-          Mein Deutsch-Tagebuch
-          <span class="secondary">– jeden Tag ein bisschen besser</span>
-        </h1>
-        <p class="subtitle">
-          Hier kannst du alles sammeln, was du auf Deutsch lernst: neue Wörter, Sätze,
-          Redemittel, Bilder, Beispiele aus dem Alltag usw.
-        </p>
       </div>
-      <div class="actions">
-        <button class="btn-primary" id="btn-open-panel">
-          <span class="icon">＋</span>
-          Neuer Eintrag
-        </button>
-        <button class="btn-ghost-small" id="btn-api-key">
-          🔑 API-Schlüssel
-        </button>
-        <div class="small-info">
-          Tipp: Nutze fette / kursive Markierungen mit <strong>**Text**</strong> und <em>*Text*</em>.
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Mein Deutsch-Tagebuch</h1>
+          <p class="page-subtitle">
+            Hier kannst du alles sammeln, was du auf Deutsch lernst:
+            neue Wörter, Sätze, Redemittel, Bilder, Beispiele aus dem Alltag usw.
+          </p>
+        </div>
+        <button class="btn btn-primary" id="new-entry-btn">+ Neuer Eintrag</button>
+      </div>
+
+      <div class="page-hint-row">
+        <div class="hint-chip">
+          <strong>Heute:</strong>&nbsp;
+          Schreibe mindestens 3 neue Sätze.
+        </div>
+        <div class="hint-chip">
+          <strong>Themen:</strong>&nbsp;
+          Wortschatz · Grammatik · Redemittel
+        </div>
+        <div class="hint-chip">
+          <strong>KI-Status:</strong>&nbsp;
+          <span data-model-status>Lokales Modell wird bei Bedarf geladen…</span>
         </div>
       </div>
     </header>
 
-    <section class="toolbar">
-      <div class="toolbar-left">
-        <span class="tag"><strong>Heute:</strong> Schreibe mindestens 3 neue Sätze.</span>
-        <span class="tag">Themen: Wortschatz · Grammatik · Redemittel</span>
-      </div>
-      <div class="small-info">
-        Alles bleibt lokal in deinem Browser gespeichert (localStorage, kein Server).
+    <!-- Eintrags-Editor -->
+    <section class="entry-editor" id="entry-editor" aria-hidden="true">
+      <div class="entry-editor-inner">
+        <div class="entry-editor-header">
+          <div class="badge-pill">
+            <span class="dot dot--green"></span>
+            Neuer Eintrag
+          </div>
+        </div>
+
+        <form class="entry-form" data-entry-form>
+          <div class="form-grid">
+            <label class="form-field">
+              <span class="form-label">Titel</span>
+              <input
+                type="text"
+                class="input"
+                placeholder="z.B. Arbeitsplatz, Familie, Wochenende …"
+                data-title-input
+              />
+            </label>
+
+            <label class="form-field form-field--notes">
+              <span class="form-label">
+                Notizen
+                <span class="form-label-help">
+                  (dein eigener Satz / Text – wird von der KI korrigiert)
+                </span>
+              </span>
+              <textarea
+                class="textarea"
+                rows="4"
+                placeholder="Schreibe deine Sätze auf Deutsch …"
+                data-notes-input
+              ></textarea>
+              <div class="form-inline-actions">
+                <button type="button" class="btn-icon" data-korrektur-btn title="Mit KI korrigieren">
+                  💡 KI-Korrektur
+                </button>
+                <span class="form-hint" data-korrektur-status></span>
+              </div>
+            </label>
+
+            <label class="form-field form-field--notes">
+              <span class="form-label">
+                Korrektur
+                <span class="form-label-help">
+                  (von der KI verbesserte Version – wird nicht automatisch gespeichert)
+                </span>
+              </span>
+              <textarea
+                class="textarea textarea--secondary"
+                rows="3"
+                placeholder="Hier erscheint die korrigierte Version …"
+                data-korrektur-input
+              ></textarea>
+            </label>
+
+            <label class="form-field">
+              <span class="form-label">Bild</span>
+              <input type="file" accept="image/*" class="input" data-image-input />
+              <span class="form-label-help">
+                Wenn du kein Bild auswählst, bleibt das alte Bild erhalten.
+              </span>
+            </label>
+          </div>
+
+          <div class="entry-editor-footer">
+            <button type="button" class="btn btn-ghost" data-cancel-btn>Abbrechen</button>
+            <button type="submit" class="btn btn-success" data-save-btn>Speichern</button>
+          </div>
+        </form>
       </div>
     </section>
 
-    <!-- Neues Eintrags-Panel -->
-    <section class="new-entry-panel" id="new-entry-panel">
-      <div class="new-entry-header">
-        <span class="badge-dot"></span>
-        <span id="panel-mode-label">Neuer Eintrag</span>
-      </div>
+    <!-- Liste der Einträge -->
+    <main class="entries" data-entries-list>
+      <!-- Einträge werden per JavaScript gerendert -->
+    </main>
+  </div>
 
-      <div class="new-entry-row">
-        <label for="title-input">Titel</label>
-        <input
-          id="title-input"
-          type="text"
-          placeholder="z.B. Trennbare Verben · Alltag"
-        />
-      </div>
-
-      <div class="new-entry-row">
-        <label for="text-input">Notizen</label>
-        <textarea
-          id="text-input"
-          placeholder="Deine eigene Version, z.B. Sätze mit Fehlern, Beispiele, Türkçe Erklärung...
-**fett** · *kursiv*"
-        ></textarea>
-      </div>
-
-      <div class="new-entry-row">
-        <label for="correction-input">Korrektur</label>
-        <textarea
-          id="correction-input"
-          placeholder="Korrigierte Version – wird automatisch von der KI gefüllt (read-only)."
-        ></textarea>
-      </div>
-
-      <div class="new-entry-row">
-        <label for="image-input">Bild</label>
-        <input id="image-input" type="file" accept="image/*" />
-      </div>
-
-      <div class="new-entry-hint">
-        Wenn du beim Bearbeiten kein neues Bild auswählst, bleibt das alte Bild erhalten.
-      </div>
-
-      <div class="new-entry-actions">
-        <button class="btn-ghost" id="btn-cancel">Abbrechen</button>
-        <button class="btn-small" id="btn-save">Speichern</button>
-      </div>
-    </section>
-
-    <!-- Einträge -->
-    <section class="entries" id="entries">
-      <div class="no-entries-hint" id="empty-hint">
-        Noch keine Einträge. Klicke oben auf <strong>„Neuer Eintrag“</strong> und
-        starte dein persönliches Deutsch-Tagebuch.
-      </div>
-    </section>
-
-    <!-- API Key Panel -->
-    <section class="apikey-panel" id="apikey-panel">
-      <div class="apikey-header">
-        <span>OpenAI API-Schlüssel</span>
-        <button class="apikey-close" id="btn-api-close">×</button>
-      </div>
-      <p class="apikey-hint">
-        Der Schlüssel wird <strong>nur lokal</strong> im Browser (localStorage) gespeichert
-        und <strong>nicht</strong> im Code oder auf GitHub abgelegt.
-      </p>
-      <input
-        id="apikey-input"
-        type="password"
-        placeholder="sk-..."
-        autocomplete="off"
-      />
-      <div class="apikey-actions">
-        <button class="btn-ghost" id="btn-api-delete">Löschen</button>
-        <button class="btn-small" id="btn-api-save">Speichern</button>
-      </div>
-    </section>
-  </main>
+  <!-- Wichtig: als ES-Modul laden, damit wir WebLLM importieren können -->
+  <script type="module" src="assets/app.js"></script>
 </body>
 </html>
