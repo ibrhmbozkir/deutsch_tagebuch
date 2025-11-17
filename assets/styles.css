@@ -212,6 +212,8 @@ button {
   font-weight: 600;
 }
 
+/* === Entries === */
+
 .entries {
   display: flex;
   flex-direction: column;
@@ -225,10 +227,13 @@ button {
 .entries::-webkit-scrollbar {
   width: 6px;
 }
-entries::-webkit-scrollbar-thumb {
+
+.entries::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.7);
   border-radius: 999px;
 }
+
+/* === Entry Card === */
 
 .entry-card {
   display: grid;
@@ -242,6 +247,7 @@ entries::-webkit-scrollbar-thumb {
   position: relative;
   overflow: hidden;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
+  cursor: default; /* kartın tamamında el işareti olmasın */
 }
 
 .entry-card::before {
@@ -344,6 +350,12 @@ entries::-webkit-scrollbar-thumb {
   font-style: italic;
 }
 
+/* Notizen satırı için daha hafif stil */
+.entry-text--note {
+  font-size: 12px;
+  color: #6b7280;
+}
+
 .entry-tags {
   margin-top: 2px;
   display: flex;
@@ -360,26 +372,32 @@ entries::-webkit-scrollbar-thumb {
   border: 1px solid rgba(191, 219, 254, 0.9);
 }
 
+/* === Actions === */
+
 .entry-actions {
   position: absolute;
   top: 10px;
   right: 10px;
   display: flex;
   gap: 6px;
+  cursor: default; /* satırda el işareti olmasın, sadece butonlarda olsun */
 }
 
 /* Buttons in card */
 
 .btn-chip {
   border-radius: 999px;
-  padding: 3px 9px;
+  padding: 4px 12px;
   font-size: 11px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   border: 1px solid rgba(148, 163, 184, 0.8);
   background: rgba(15, 23, 42, 0.86);
   color: #e5e7eb;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 
 .btn-chip--danger {
@@ -389,7 +407,16 @@ entries::-webkit-scrollbar-thumb {
 
 .btn-chip:hover {
   filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
 }
+
+.btn-chip:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+}
+
+/* === New Entry Panel === */
 
 .new-entry-panel {
   margin-top: 4px;
@@ -502,7 +529,7 @@ entries::-webkit-scrollbar-thumb {
   padding: 24px 12px;
 }
 
-/* ===== Tooltip'li düzeltme ===== */
+/* ===== Tooltip'li düzeltme (ileride tekrar kullanırsan hazır kalsın) ===== */
 
 .sentence-with-hint {
   position: relative;
@@ -538,7 +565,7 @@ entries::-webkit-scrollbar-thumb {
   transform: translateY(0);
 }
 
-/* ===== API Key Panel ===== */
+/* ===== API Key Panel (şimdilik kullanmıyorsun ama dursun) ===== */
 
 .apikey-panel {
   position: fixed;
@@ -602,44 +629,38 @@ entries::-webkit-scrollbar-thumb {
   margin-top: 4px;
 }
 
+/* ===== Responsive ===== */
+
 @media (max-width: 768px) {
   body {
     padding: 12px;
   }
+
   .page {
     padding: 18px 16px 16px;
     border-radius: 26px;
   }
+
   .entry-card {
     grid-template-columns: minmax(0, 1fr);
   }
+
   .entry-image {
     min-height: 180px;
   }
+
   .toolbar {
     flex-direction: column;
     align-items: flex-start;
   }
+
   .entries {
     max-height: none;
   }
+
   .entry-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.entry-actions .btn-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.entry-card,
-.entry-actions {
-  cursor: default;
-}
-
+    position: static;
+    margin-top: 12px;
+    justify-content: flex-end;
+  }
 }
