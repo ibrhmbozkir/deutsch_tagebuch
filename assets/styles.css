@@ -623,4 +623,23 @@ entries::-webkit-scrollbar-thumb {
   .entries {
     max-height: none;
   }
+  .entry-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.entry-actions .btn-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.entry-card,
+.entry-actions {
+  cursor: default;
+}
+
 }
