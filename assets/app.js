@@ -1,4 +1,6 @@
 const STORAGE_KEY = "de_tagebuch_entries_v1";
+const API_KEY_STORAGE = "de_tagebuch_openai_key";
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 const openPanelBtn = document.getElementById("btn-open-panel");
 const panel = document.getElementById("new-entry-panel");
@@ -12,8 +14,23 @@ const entriesContainer = document.getElementById("entries");
 const emptyHint = document.getElementById("empty-hint");
 const panelModeLabel = document.getElementById("panel-mode-label");
 
+// API Key UI
+const apiPanel = document.getElementById("apikey-panel");
+const apiOpenBtn = document.getElementById("btn-api-key");
+const apiCloseBtn = document.getElementById("btn-api-close");
+const apiInput = document.getElementById("apikey-input");
+const apiSaveBtn = document.getElementById("btn-api-save");
+const apiDeleteBtn = document.getElementById("btn-api-delete");
+
 let entries = [];
 let editingEntryId = null;
+
+// Korrektur alanını kullanıcı değiştiremesin
+correctionInput.readOnly = true;
+
+// AI isteği için debounce
+let correctionTimer = null;
+let lastRequestedText = "";
 
 // ---------- Storage ----------
 
@@ -30,6 +47,22 @@ function loadEntries() {
 
 function saveEntries() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+}
+
+function getApiKey() {
+  try {
+    return localStorage.getItem(API_KEY_STORAGE) || "";
+  } catch {
+    return "";
+  }
+}
+
+function setApiKey(key) {
+  if (!key) {
+    localStorage.removeItem(API_KEY_STORAGE);
+  } else {
+    localStorage.setItem(API_KEY_STORAGE, key);
+  }
 }
 
 // ---------- Panel ----------
@@ -78,6 +111,38 @@ function closePanel() {
 openPanelBtn.addEventListener("click", () => openPanel("new"));
 cancelBtn.addEventListener("click", closePanel);
 
+// ---------- API Key Panel ----------
+
+function openApiPanel() {
+  const existing = getApiKey();
+  apiInput.value = existing || "";
+  apiPanel.style.display = "flex";
+  apiInput.focus();
+}
+
+function closeApiPanel() {
+  apiPanel.style.display = "none";
+}
+
+apiOpenBtn.addEventListener("click", openApiPanel);
+apiCloseBtn.addEventListener("click", closeApiPanel);
+
+apiSaveBtn.addEventListener("click", () => {
+  const val = apiInput.value.trim();
+  if (!val) {
+    alert("Bitte einen gültigen OpenAI API-Schlüssel eingeben (z.B. sk-...).");
+    return;
+  }
+  setApiKey(val);
+  closeApiPanel();
+});
+
+apiDeleteBtn.addEventListener("click", () => {
+  if (!confirm("Gespeicherten API-Schlüssel wirklich löschen?")) return;
+  setApiKey("");
+  apiInput.value = "";
+});
+
 // ---------- Formatierung ----------
 
 function escapeHtml(str) {
@@ -89,14 +154,9 @@ function escapeHtml(str) {
 
 function renderFormattedText(text) {
   let safe = escapeHtml(text);
-
-  // **fett**
   safe = safe.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  // *kursiv*
   safe = safe.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  // Zeilenumbrüche -> <br>
   safe = safe.replace(/\n/g, "<br>");
-
   return safe;
 }
 
@@ -109,6 +169,98 @@ function formatDate(value) {
     year: "numeric",
   });
 }
+
+// ---------- AI düzeltme isteği ----------
+
+async function requestCorrectionForCurrentText() {
+  const text = textInput.value.trim();
+  if (!text) {
+    correctionInput.value = "";
+    correctionInput.placeholder =
+      "Korrigierte Version – wird automatisch von der KI gefüllt (read-only).";
+    return;
+  }
+
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    correctionInput.placeholder =
+      "Bitte oben den OpenAI API-Schlüssel speichern.";
+    correctionInput.value = "";
+    return;
+  }
+
+  lastRequestedText = text;
+
+  try {
+    correctionInput.placeholder = "Korrektur wird geladen...";
+
+    const res = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4.1-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Du bist ein hilfreicher Deutschlehrer. Korrigiere den deutschen Text des Nutzers. " +
+              "Gib NUR die korrigierte Version zurück, ohne Erklärungen.",
+          },
+          {
+            role: "user",
+            content:
+              "Bitte korrigiere diesen deutschen Text. Gib nur die korrigierte Version zurück:\n\n" +
+              text,
+          },
+        ],
+        temperature: 0.1,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("API error", res.status);
+      correctionInput.placeholder =
+        "Fehler bei der KI-Korrektur (HTTP " + res.status + ")";
+      return;
+    }
+
+    const data = await res.json();
+    const corrected =
+      data.choices?.[0]?.message?.content?.trim?.() || "";
+
+    // Kullanıcı bu sırada metni değiştirdiyse, eski cevabı yazma
+    if (textInput.value.trim() === lastRequestedText) {
+      correctionInput.value = corrected;
+      correctionInput.placeholder =
+        "Korrigierte Version – automatisch von der KI.";
+    }
+  } catch (e) {
+    console.error("Fehler beim Abrufen der Korrektur:", e);
+    correctionInput.placeholder = "Keine Verbindung zur KI-API.";
+  }
+}
+
+// Yazarken 800 ms sonra otomatik iste
+textInput.addEventListener("input", () => {
+  const current = textInput.value.trim();
+  if (!current) {
+    correctionInput.value = "";
+    correctionInput.placeholder =
+      "Korrigierte Version – wird automatisch von der KI gefüllt (read-only).";
+    return;
+  }
+
+  if (correctionTimer) clearTimeout(correctionTimer);
+
+  correctionInput.placeholder = "Korrektur wird vorbereitet...";
+
+  correctionTimer = setTimeout(() => {
+    requestCorrectionForCurrentText();
+  }, 800);
+});
 
 // ---------- Render ----------
 
