@@ -9,8 +9,10 @@ const textInput = document.getElementById("text-input");
 const imageInput = document.getElementById("image-input");
 const entriesContainer = document.getElementById("entries");
 const emptyHint = document.getElementById("empty-hint");
+const panelModeLabel = document.getElementById("panel-mode-label");
 
 let entries = [];
+let editingEntryId = null;
 
 // ---------- Helper: Storage ----------
 
@@ -31,19 +33,45 @@ function saveEntries() {
 
 // ---------- Panel ----------
 
-function openPanel() {
+function setPanelMode(mode) {
+  if (!panelModeLabel) return;
+  if (mode === "edit") {
+    panelModeLabel.textContent = "Eintrag bearbeiten";
+  } else {
+    panelModeLabel.textContent = "Neuer Eintrag";
+  }
+}
+
+function openPanel(mode = "new", entry = null) {
   panel.style.display = "flex";
+
+  if (mode === "edit" && entry) {
+    editingEntryId = entry.id;
+    titleInput.value = entry.title || "";
+    textInput.value = entry.text || "";
+    imageInput.value = "";
+    setPanelMode("edit");
+  } else {
+    editingEntryId = null;
+    titleInput.value = "";
+    textInput.value = "";
+    imageInput.value = "";
+    setPanelMode("new");
+  }
+
   titleInput.focus();
 }
 
 function closePanel() {
   panel.style.display = "none";
+  editingEntryId = null;
   titleInput.value = "";
   textInput.value = "";
   imageInput.value = "";
+  setPanelMode("new");
 }
 
-openPanelBtn.addEventListener("click", openPanel);
+openPanelBtn.addEventListener("click", () => openPanel("new"));
 cancelBtn.addEventListener("click", closePanel);
 
 // ---------- Formatierung: **fett**, *kursiv*, Zeilenumbrüche ----------
@@ -68,8 +96,8 @@ function renderFormattedText(text) {
   return safe;
 }
 
-function formatDate(dateStr) {
-  const d = new Date(dateStr);
+function formatDate(value) {
+  const d = new Date(value);
   if (isNaN(d.getTime())) return "";
   return d.toLocaleDateString("de-DE", {
     day: "2-digit",
@@ -78,10 +106,9 @@ function formatDate(dateStr) {
   });
 }
 
-// ---------- Karten erzeugen ----------
+// ---------- Render ----------
 
 function renderEntries() {
-  // Inhalt leeren
   entriesContainer.innerHTML = "";
 
   if (!entries.length) {
@@ -129,7 +156,9 @@ function renderEntries() {
 
       const meta = document.createElement("div");
       meta.className = "entry-meta";
-      meta.innerHTML = `<span>📆 ${formatDate(entry.createdAt)}</span><span class="separator">•</span><span>Eigene Notizen</span>`;
+      meta.innerHTML = `<span>📆 ${formatDate(
+        entry.createdAt
+      )}</span><span class="separator">•</span><span>Eigene Notizen</span>`;
 
       const titleEl = document.createElement("div");
       titleEl.className = "entry-title";
@@ -151,19 +180,32 @@ function renderEntries() {
       content.appendChild(textEl);
       content.appendChild(tags);
 
-      // Löschen-Button
+      // Aktionen
+      const actions = document.createElement("div");
+      actions.className = "entry-actions";
+
+      const editBtn = document.createElement("button");
+      editBtn.className = "btn-chip";
+      editBtn.textContent = "Bearbeiten";
+      editBtn.addEventListener("click", () => startEdit(entry.id));
+
       const delBtn = document.createElement("button");
-      delBtn.className = "entry-delete";
+      delBtn.className = "btn-chip btn-chip--danger";
       delBtn.textContent = "Löschen";
       delBtn.addEventListener("click", () => deleteEntry(entry.id));
 
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+
       article.appendChild(imageWrapper);
       article.appendChild(content);
-      article.appendChild(delBtn);
+      article.appendChild(actions);
 
       entriesContainer.appendChild(article);
     });
 }
+
+// ---------- CRUD-Funktionen ----------
 
 function addEntry({ title, text, imageData }) {
   const now = Date.now();
@@ -181,11 +223,38 @@ function addEntry({ title, text, imageData }) {
   renderEntries();
 }
 
+function updateEntry(id, { title, text, imageData, keepImage }) {
+  const idx = entries.findIndex((e) => e.id === id);
+  if (idx === -1) return;
+
+  const existing = entries[idx];
+
+  entries[idx] = {
+    ...existing,
+    title: title ?? existing.title,
+    text: text ?? existing.text,
+    imageData: keepImage
+      ? existing.imageData
+      : imageData !== undefined
+      ? imageData
+      : existing.imageData,
+  };
+
+  saveEntries();
+  renderEntries();
+}
+
 function deleteEntry(id) {
   if (!confirm("Diesen Eintrag wirklich löschen?")) return;
   entries = entries.filter((e) => e.id !== id);
   saveEntries();
   renderEntries();
+}
+
+function startEdit(id) {
+  const entry = entries.find((e) => e.id === id);
+  if (!entry) return;
+  openPanel("edit", entry);
 }
 
 // ---------- Speichern-Button ----------
@@ -199,16 +268,35 @@ saveBtn.addEventListener("click", () => {
     return;
   }
 
+  const isEdit = Boolean(editingEntryId);
   const file = imageInput.files[0];
+
   if (file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      addEntry({ title, text, imageData: e.target.result });
+      const imageData = e.target.result;
+      if (isEdit) {
+        updateEntry(editingEntryId, {
+          title,
+          text,
+          imageData,
+        });
+      } else {
+        addEntry({ title, text, imageData });
+      }
       closePanel();
     };
     reader.readAsDataURL(file);
   } else {
-    addEntry({ title, text, imageData: null });
+    if (isEdit) {
+      updateEntry(editingEntryId, {
+        title,
+        text,
+        keepImage: true,
+      });
+    } else {
+      addEntry({ title, text, imageData: null });
+    }
     closePanel();
   }
 });
