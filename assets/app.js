@@ -6,6 +6,7 @@ const cancelBtn = document.getElementById("btn-cancel");
 const saveBtn = document.getElementById("btn-save");
 const titleInput = document.getElementById("title-input");
 const textInput = document.getElementById("text-input");
+const correctionInput = document.getElementById("correction-input");
 const imageInput = document.getElementById("image-input");
 const entriesContainer = document.getElementById("entries");
 const emptyHint = document.getElementById("empty-hint");
@@ -14,7 +15,7 @@ const panelModeLabel = document.getElementById("panel-mode-label");
 let entries = [];
 let editingEntryId = null;
 
-// ---------- Helper: Storage ----------
+// ---------- Storage ----------
 
 function loadEntries() {
   try {
@@ -49,12 +50,14 @@ function openPanel(mode = "new", entry = null) {
     editingEntryId = entry.id;
     titleInput.value = entry.title || "";
     textInput.value = entry.text || "";
+    correctionInput.value = entry.correction || "";
     imageInput.value = "";
     setPanelMode("edit");
   } else {
     editingEntryId = null;
     titleInput.value = "";
     textInput.value = "";
+    correctionInput.value = "";
     imageInput.value = "";
     setPanelMode("new");
   }
@@ -67,6 +70,7 @@ function closePanel() {
   editingEntryId = null;
   titleInput.value = "";
   textInput.value = "";
+  correctionInput.value = "";
   imageInput.value = "";
   setPanelMode("new");
 }
@@ -74,7 +78,7 @@ function closePanel() {
 openPanelBtn.addEventListener("click", () => openPanel("new"));
 cancelBtn.addEventListener("click", closePanel);
 
-// ---------- Formatierung: **fett**, *kursiv*, Zeilenumbrüche ----------
+// ---------- Formatierung ----------
 
 function escapeHtml(str) {
   return str
@@ -166,7 +170,18 @@ function renderEntries() {
 
       const textEl = document.createElement("div");
       textEl.className = "entry-text";
-      textEl.innerHTML = renderFormattedText(entry.text || "");
+
+      if (entry.correction && entry.correction.trim() !== "") {
+        const correctedSafe = escapeHtml(entry.correction).replace(
+          /\n/g,
+          "<br>"
+        );
+        textEl.innerHTML = `<span class="sentence-with-hint" data-correction="${correctedSafe}">${renderFormattedText(
+          entry.text || ""
+        )}</span>`;
+      } else {
+        textEl.innerHTML = renderFormattedText(entry.text || "");
+      }
 
       const tags = document.createElement("div");
       tags.className = "entry-tags";
@@ -205,15 +220,16 @@ function renderEntries() {
     });
 }
 
-// ---------- CRUD-Funktionen ----------
+// ---------- CRUD ----------
 
-function addEntry({ title, text, imageData }) {
+function addEntry({ title, text, correction, imageData }) {
   const now = Date.now();
 
   const entry = {
     id: now.toString(),
     title: title || "",
     text: text || "",
+    correction: correction || "",
     imageData: imageData || null,
     createdAt: now,
   };
@@ -223,7 +239,7 @@ function addEntry({ title, text, imageData }) {
   renderEntries();
 }
 
-function updateEntry(id, { title, text, imageData, keepImage }) {
+function updateEntry(id, { title, text, correction, imageData, keepImage }) {
   const idx = entries.findIndex((e) => e.id === id);
   if (idx === -1) return;
 
@@ -233,6 +249,8 @@ function updateEntry(id, { title, text, imageData, keepImage }) {
     ...existing,
     title: title ?? existing.title,
     text: text ?? existing.text,
+    correction:
+      typeof correction === "string" ? correction : existing.correction || "",
     imageData: keepImage
       ? existing.imageData
       : imageData !== undefined
@@ -262,6 +280,7 @@ function startEdit(id) {
 saveBtn.addEventListener("click", () => {
   const title = titleInput.value.trim();
   const text = textInput.value.trim();
+  const correction = correctionInput.value.trim();
 
   if (!title && !text) {
     alert("Bitte gib mindestens einen Titel oder Text ein.");
@@ -279,10 +298,11 @@ saveBtn.addEventListener("click", () => {
         updateEntry(editingEntryId, {
           title,
           text,
+          correction,
           imageData,
         });
       } else {
-        addEntry({ title, text, imageData });
+        addEntry({ title, text, correction, imageData });
       }
       closePanel();
     };
@@ -292,10 +312,11 @@ saveBtn.addEventListener("click", () => {
       updateEntry(editingEntryId, {
         title,
         text,
+        correction,
         keepImage: true,
       });
     } else {
-      addEntry({ title, text, imageData: null });
+      addEntry({ title, text, correction, imageData: null });
     }
     closePanel();
   }
