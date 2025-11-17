@@ -5,8 +5,8 @@
   <title>Mein Deutsch-Tagebuch | Ibrahim</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="assets/styles.css" />
-  <!-- v=2: cache sorununu önlemek için -->
-  <script src="assets/app.js?v=2" defer></script>
+  <!-- v=3: cache sorununu önlemek için -->
+  <script src="assets/app.js?v=3" defer></script>
 </head>
 <body>
   <main class="page">
@@ -61,21 +61,33 @@
           placeholder="z.B. Trennbare Verben · Alltag"
         />
       </div>
+
       <div class="new-entry-row">
         <label for="text-input">Notizen</label>
         <textarea
           id="text-input"
-          placeholder="Beispiele, Sätze, Erklärungen, Türkçe açıklamalar...
+          placeholder="Deine eigene Version, z.B. Sätze mit Fehlern, Beispiele, Türkçe Erklärung...
 **fett** · *kursiv*"
         ></textarea>
       </div>
+
+      <div class="new-entry-row">
+        <label for="correction-input">Korrektur</label>
+        <textarea
+          id="correction-input"
+          placeholder="Optional: korrigierte Version (z.B. von ChatGPT). Beim Darüberfahren mit der Maus wird sie als Tipp angezeigt."
+        ></textarea>
+      </div>
+
       <div class="new-entry-row">
         <label for="image-input">Bild</label>
         <input id="image-input" type="file" accept="image/*" />
       </div>
+
       <div class="new-entry-hint">
         Wenn du beim Bearbeiten kein neues Bild auswählst, bleibt das alte Bild erhalten.
       </div>
+
       <div class="new-entry-actions">
         <button class="btn-ghost" id="btn-cancel">Abbrechen</button>
         <button class="btn-small" id="btn-save">Speichern</button>
