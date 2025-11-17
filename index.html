@@ -5,7 +5,8 @@
   <title>Mein Deutsch-Tagebuch | Ibrahim</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="assets/styles.css" />
-  <script src="assets/app.js" defer></script>
+  <!-- v=2: cache sorununu önlemek için -->
+  <script src="assets/app.js?v=2" defer></script>
 </head>
 <body>
   <main class="page">
@@ -47,6 +48,11 @@
 
     <!-- Neues Eintrags-Panel -->
     <section class="new-entry-panel" id="new-entry-panel">
+      <div class="new-entry-header">
+        <span class="badge-dot"></span>
+        <span id="panel-mode-label">Neuer Eintrag</span>
+      </div>
+
       <div class="new-entry-row">
         <label for="title-input">Titel</label>
         <input
@@ -67,9 +73,12 @@
         <label for="image-input">Bild</label>
         <input id="image-input" type="file" accept="image/*" />
       </div>
+      <div class="new-entry-hint">
+        Wenn du beim Bearbeiten kein neues Bild auswählst, bleibt das alte Bild erhalten.
+      </div>
       <div class="new-entry-actions">
         <button class="btn-ghost" id="btn-cancel">Abbrechen</button>
-        <button class="btn-small" id="btn-save">Eintrag hinzufügen</button>
+        <button class="btn-small" id="btn-save">Speichern</button>
       </div>
     </section>
 
