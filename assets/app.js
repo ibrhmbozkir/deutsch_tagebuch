@@ -1,9 +1,10 @@
 // assets/app.js
 // Eski güzel tasarım + localStorage + WebLLM (tamamen ücretsiz, local KI)
+// + Almanca Korrektur + Türkçe çeviri
 
 import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 
-const STORAGE_KEY = "de_tagebuch_entries_v1";
+const STORAGE_KEY = "de_tagebuch_entries_v2";
 
 const openPanelBtn = document.getElementById("btn-open-panel");
 const panel = document.getElementById("new-entry-panel");
@@ -12,6 +13,7 @@ const saveBtn = document.getElementById("btn-save");
 const titleInput = document.getElementById("title-input");
 const textInput = document.getElementById("text-input");
 const correctionInput = document.getElementById("correction-input");
+const turkishInput = document.getElementById("turkish-input");
 const imageInput = document.getElementById("image-input");
 const entriesContainer = document.getElementById("entries");
 const emptyHint = document.getElementById("empty-hint");
@@ -20,8 +22,9 @@ const panelModeLabel = document.getElementById("panel-mode-label");
 let entries = [];
 let editingEntryId = null;
 
-// Korrektur alanını kullanıcı değiştiremesin (yalnızca KI yazar)
+// Korrektur ve Türkçe alanları kullanıcı tarafından değiştirilmeyecek
 correctionInput.readOnly = true;
+turkishInput.readOnly = true;
 
 // ----------------------
 // localStorage
@@ -58,6 +61,7 @@ function openPanel(mode = "new", entry = null) {
     titleInput.value = entry.title || "";
     textInput.value = entry.text || "";
     correctionInput.value = entry.correction || "";
+    turkishInput.value = entry.translation || "";
     imageInput.value = "";
     setPanelMode("edit");
   } else {
@@ -65,6 +69,7 @@ function openPanel(mode = "new", entry = null) {
     titleInput.value = "";
     textInput.value = "";
     correctionInput.value = "";
+    turkishInput.value = "";
     imageInput.value = "";
     setPanelMode("new");
   }
@@ -78,6 +83,7 @@ function closePanel() {
   titleInput.value = "";
   textInput.value = "";
   correctionInput.value = "";
+  turkishInput.value = "";
   imageInput.value = "";
   setPanelMode("new");
 }
@@ -125,20 +131,31 @@ function setKorrekturPlaceholder(text) {
   correctionInput.placeholder = text;
 }
 
+function setTurkishPlaceholder(text) {
+  turkishInput.placeholder = text;
+}
+
 async function ensureEngine() {
   if (engineState === "ready" && engine) return engine;
   if (engineState === "loading") {
     setKorrekturPlaceholder("KI wird geladen …");
+    setTurkishPlaceholder("KI wird geladen …");
     return null;
   }
 
   engineState = "loading";
-  setKorrekturPlaceholder("Modell wird geladen … (erstes Mal dauert etwas)");
+  setKorrekturPlaceholder(
+    "Modell wird geladen … (erstes Mal dauert etwas länger)"
+  );
+  setTurkishPlaceholder(
+    "Modell wird geladen … (erstes Mal dauert etwas länger)"
+  );
 
   const initProgressCallback = (report) => {
     if (!report) return;
     const p = Math.round((report.progress || 0) * 100);
     setKorrekturPlaceholder(`Modell wird geladen … ${p}%`);
+    setTurkishPlaceholder(`Modell wird geladen … ${p}%`);
   };
 
   try {
@@ -149,11 +166,17 @@ async function ensureEngine() {
     setKorrekturPlaceholder(
       "Korrigierte Version – wird automatisch von der KI gefüllt."
     );
+    setTurkishPlaceholder(
+      "Die korrigierte Version wird automatisch ins Türkische übersetzt."
+    );
     return engine;
   } catch (err) {
     console.error("Fehler beim Laden des Modells:", err);
     engineState = "error";
     setKorrekturPlaceholder(
+      "Fehler beim Laden der KI. (WebGPU-Unterstützung nötig)"
+    );
+    setTurkishPlaceholder(
       "Fehler beim Laden der KI. (WebGPU-Unterstützung nötig)"
     );
     return null;
@@ -164,8 +187,12 @@ async function requestCorrectionForCurrentText() {
   const text = textInput.value.trim();
   if (!text) {
     correctionInput.value = "";
+    turkishInput.value = "";
     setKorrekturPlaceholder(
       "Korrigierte Version – wird automatisch von der KI gefüllt."
+    );
+    setTurkishPlaceholder(
+      "Die korrigierte Version wird automatisch ins Türkische übersetzt."
     );
     return;
   }
@@ -174,11 +201,13 @@ async function requestCorrectionForCurrentText() {
 
   lastRequestedText = text;
   setKorrekturPlaceholder("KI denkt …");
+  setTurkishPlaceholder("KI denkt …");
 
   const eng = await ensureEngine();
   if (!eng) return;
 
   try {
+    // 1) Almanca düzeltme
     const messages = [
       {
         role: "system",
@@ -197,31 +226,68 @@ async function requestCorrectionForCurrentText() {
 
     const corrected = result.choices?.[0]?.message?.content?.trim?.() || "";
 
-    // Kullanıcı bu arada metni değiştirdiyse, eski cevabı yazma
-    if (textInput.value.trim() === lastRequestedText) {
-      correctionInput.value = corrected;
-      setKorrekturPlaceholder("Korrigierte Version – lokale KI ✔");
+    if (textInput.value.trim() !== lastRequestedText) {
+      // Kullanıcı metni değiştirdiyse eski cevabı yazma
+      return;
+    }
+
+    correctionInput.value = corrected;
+    setKorrekturPlaceholder("Korrigierte Version – lokale KI ✔");
+
+    // 2) Türkçe çeviri (kısa, net çeviri)
+    if (corrected) {
+      const trMessages = [
+        {
+          role: "system",
+          content:
+            "Du bist ein professioneller Übersetzer. Übersetze den deutschen Satz " +
+            "ins Türkische klar, korrekt und natürlich. Gib nur den türkischen Satz zurück.",
+        },
+        { role: "user", content: corrected },
+      ];
+
+      const trResult = await eng.chat.completions.create({
+        messages: trMessages,
+        temperature: 0,
+      });
+
+      const trText = trResult.choices?.[0]?.message?.content?.trim?.() || "";
+      if (textInput.value.trim() === lastRequestedText) {
+        turkishInput.value = trText;
+        setTurkishPlaceholder("Türkische Übersetzung – lokale KI ✔");
+      }
+    } else {
+      turkishInput.value = "";
+      setTurkishPlaceholder(
+        "Die korrigierte Version wird automatisch ins Türkische übersetzt."
+      );
     }
   } catch (err) {
     console.error("Fehler bei der KI-Korrektur:", err);
     setKorrekturPlaceholder("Fehler bei der KI-Korrektur.");
+    setTurkishPlaceholder("Fehler bei der KI-Korrektur.");
   }
 }
 
-// Yazarken 1 s bekleyip otomatik düzelt
+// Yazarken 1 s bekleyip otomatik düzelt + çeviri
 textInput.addEventListener("input", () => {
   const current = textInput.value.trim();
   if (!current) {
     if (correctionTimer) clearTimeout(correctionTimer);
     correctionInput.value = "";
+    turkishInput.value = "";
     setKorrekturPlaceholder(
       "Korrigierte Version – wird automatisch von der KI gefüllt."
+    );
+    setTurkishPlaceholder(
+      "Die korrigierte Version wird automatisch ins Türkische übersetzt."
     );
     return;
   }
 
   if (correctionTimer) clearTimeout(correctionTimer);
   setKorrekturPlaceholder("Korrektur wird vorbereitet …");
+  setTurkishPlaceholder("Übersetzung wird vorbereitet …");
 
   correctionTimer = setTimeout(() => {
     requestCorrectionForCurrentText();
@@ -287,18 +353,7 @@ function renderEntries() {
 
       const textEl = document.createElement("div");
       textEl.className = "entry-text";
-
-      if (entry.correction && entry.correction.trim() !== "") {
-        const correctedSafe = escapeHtml(entry.correction).replace(
-          /\n/g,
-          "<br>"
-        );
-        textEl.innerHTML = `<span class="sentence-with-hint" data-correction="${correctedSafe}">${renderFormattedText(
-          entry.text || ""
-        )}</span>`;
-      } else {
-        textEl.innerHTML = renderFormattedText(entry.text || "");
-      }
+      textEl.innerHTML = renderFormattedText(entry.text || "");
 
       const tags = document.createElement("div");
       tags.className = "entry-tags";
@@ -310,6 +365,27 @@ function renderEntries() {
       content.appendChild(meta);
       content.appendChild(titleEl);
       content.appendChild(textEl);
+
+      if (entry.correction) {
+        const corrEl = document.createElement("div");
+        corrEl.className = "entry-text";
+        corrEl.style.marginTop = "4px";
+        corrEl.innerHTML =
+          "<strong>Korrektur:</strong> " + renderFormattedText(entry.correction);
+        content.appendChild(corrEl);
+      }
+
+      if (entry.translation) {
+        const trEl = document.createElement("div");
+        trEl.className = "entry-text";
+        trEl.style.marginTop = "2px";
+        trEl.style.fontSize = "12px";
+        trEl.style.color = "#4b5563";
+        trEl.innerHTML =
+          "<strong>Türkisch:</strong> " + escapeHtml(entry.translation);
+        content.appendChild(trEl);
+      }
+
       content.appendChild(tags);
 
       const actions = document.createElement("div");
@@ -339,7 +415,7 @@ function renderEntries() {
 // ----------------------
 // CRUD
 // ----------------------
-function addEntry({ title, text, correction, imageData }) {
+function addEntry({ title, text, correction, translation, imageData }) {
   const now = Date.now();
 
   const entry = {
@@ -347,6 +423,7 @@ function addEntry({ title, text, correction, imageData }) {
     title: title || "",
     text: text || "",
     correction: correction || "",
+    translation: translation || "",
     imageData: imageData || null,
     createdAt: now,
   };
@@ -356,7 +433,10 @@ function addEntry({ title, text, correction, imageData }) {
   renderEntries();
 }
 
-function updateEntry(id, { title, text, correction, imageData, keepImage }) {
+function updateEntry(
+  id,
+  { title, text, correction, translation, imageData, keepImage }
+) {
   const idx = entries.findIndex((e) => e.id === id);
   if (idx === -1) return;
 
@@ -368,6 +448,10 @@ function updateEntry(id, { title, text, correction, imageData, keepImage }) {
     text: text ?? existing.text,
     correction:
       typeof correction === "string" ? correction : existing.correction || "",
+    translation:
+      typeof translation === "string"
+        ? translation
+        : existing.translation || "",
     imageData: keepImage
       ? existing.imageData
       : imageData !== undefined
@@ -399,6 +483,7 @@ saveBtn.addEventListener("click", () => {
   const title = titleInput.value.trim();
   const text = textInput.value.trim();
   const correction = correctionInput.value.trim();
+  const translation = turkishInput.value.trim();
 
   if (!title && !text) {
     alert("Bitte gib mindestens einen Titel oder Text ein.");
@@ -417,10 +502,11 @@ saveBtn.addEventListener("click", () => {
           title,
           text,
           correction,
+          translation,
           imageData,
         });
       } else {
-        addEntry({ title, text, correction, imageData });
+        addEntry({ title, text, correction, translation, imageData });
       }
       closePanel();
     };
@@ -431,10 +517,11 @@ saveBtn.addEventListener("click", () => {
         title,
         text,
         correction,
+        translation,
         keepImage: true,
       });
     } else {
-      addEntry({ title, text, correction, imageData: null });
+      addEntry({ title, text, correction, translation, imageData: null });
     }
     closePanel();
   }
@@ -447,4 +534,7 @@ entries = loadEntries();
 renderEntries();
 setKorrekturPlaceholder(
   "Korrigierte Version – wird automatisch von der KI gefüllt."
+);
+setTurkishPlaceholder(
+  "Die korrigierte Version wird automatisch ins Türkische übersetzt."
 );
