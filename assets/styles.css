@@ -415,7 +415,7 @@ button {
 
 .new-entry-panel label {
   font-size: 11px;
-  min-width: 62px;
+  min-width: 72px;
 }
 
 .new-entry-panel input[type="text"],
@@ -487,6 +487,42 @@ button {
   color: var(--text-muted);
   text-align: center;
   padding: 24px 12px;
+}
+
+/* ===== Tooltip'li düzeltme ===== */
+
+.sentence-with-hint {
+  position: relative;
+  background: rgba(248, 113, 113, 0.1);
+  border-bottom: 1px dotted #ef4444;
+  cursor: help;
+  padding-bottom: 1px;
+}
+
+.sentence-with-hint::after {
+  content: attr(data-correction);
+  position: absolute;
+  left: 0;
+  bottom: 120%;
+  max-width: 320px;
+  background: #020617;
+  color: #e5e7eb;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 20;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.6);
+  white-space: normal;
+}
+
+.sentence-with-hint:hover::after {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 @media (max-width: 768px) {
