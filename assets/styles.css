@@ -1,13 +1,14 @@
 :root {
-  --bg-body: #f4f5fb;
+  --bg-body: #e6f0ff;
   --bg-card: #ffffff;
   --accent: #2563eb;
   --accent-soft: rgba(37, 99, 235, 0.1);
+  --accent-strong: #1d4ed8;
   --text-main: #0f172a;
   --text-muted: #6b7280;
   --border-subtle: #e5e7eb;
-  --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.12);
-  --radius-xl: 18px;
+  --shadow-soft: 0 20px 60px rgba(15, 23, 42, 0.18);
+  --radius-xl: 20px;
 }
 
 * {
@@ -21,9 +22,10 @@ body {
     "Segoe UI", sans-serif;
   background: radial-gradient(
     circle at top left,
-    #e0f2fe 0,
-    #f4f5fb 40%,
-    #eef2ff 100%
+    #c7d2fe 0,
+    #e0f2fe 30%,
+    #eef2ff 70%,
+    #ffffff 100%
   );
   color: var(--text-main);
   min-height: 100vh;
@@ -38,18 +40,18 @@ body {
   max-width: 1100px;
   background: linear-gradient(
     145deg,
-    #ffffff 0,
+    rgba(255, 255, 255, 0.96) 0,
     #f9fafb 40%,
     #eef2ff 100%
   );
-  border-radius: 28px;
+  border-radius: 32px;
   box-shadow: var(--shadow-soft);
   padding: 28px 26px 26px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  backdrop-filter: blur(14px);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  backdrop-filter: blur(18px);
 }
 
 header {
@@ -73,7 +75,7 @@ header {
   padding: 4px 10px;
   border-radius: 999px;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-strong);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -124,6 +126,7 @@ button {
   border: none;
   outline: none;
   font: inherit;
+  background: none;
 }
 
 .btn-primary {
@@ -136,7 +139,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.45);
   transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
   white-space: nowrap;
 }
@@ -156,7 +159,7 @@ button {
 .btn-primary:hover {
   transform: translateY(-1px);
   filter: brightness(1.02);
-  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.45);
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.5);
 }
 
 .btn-primary:active {
@@ -170,9 +173,9 @@ button {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px dashed rgba(148, 163, 184, 0.6);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px dashed rgba(148, 163, 184, 0.7);
 }
 
 .toolbar-left {
@@ -188,7 +191,7 @@ button {
   border-radius: 999px;
   border: 1px solid rgba(148, 163, 184, 0.7);
   color: var(--text-muted);
-  background: rgba(248, 250, 252, 0.8);
+  background: rgba(248, 250, 252, 0.9);
 }
 
 .tag strong {
@@ -199,8 +202,8 @@ button {
 .entries {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-height: calc(100vh - 210px);
+  gap: 16px;
+  max-height: calc(100vh - 230px);
   overflow: auto;
   padding-right: 6px;
   scroll-behavior: smooth;
@@ -220,11 +223,12 @@ button {
   gap: 14px;
   padding: 14px;
   border-radius: var(--radius-xl);
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
   position: relative;
   overflow: hidden;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .entry-card::before {
@@ -233,15 +237,20 @@ button {
   inset: 0;
   background: radial-gradient(
     circle at top right,
-    rgba(129, 140, 248, 0.12),
+    rgba(129, 140, 248, 0.14),
     transparent 60%
   );
   pointer-events: none;
 }
 
+.entry-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+}
+
 .entry-image {
   position: relative;
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
   min-height: 140px;
   background: #e5e7eb;
@@ -285,7 +294,7 @@ button {
 .entry-content {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   position: relative;
   z-index: 1;
 }
@@ -338,16 +347,63 @@ button {
   border: 1px solid rgba(191, 219, 254, 0.9);
 }
 
+.entry-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+}
+
+/* Buttons in card */
+
+.btn-chip {
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.8);
+  background: rgba(15, 23, 42, 0.86);
+  color: #e5e7eb;
+}
+
+.btn-chip--danger {
+  background: rgba(220, 38, 38, 0.98);
+  border-color: rgba(248, 113, 113, 0.9);
+}
+
+.btn-chip:hover {
+  filter: brightness(1.05);
+}
+
 .new-entry-panel {
   margin-top: 4px;
-  border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.8);
-  padding: 12px;
-  background: rgba(15, 23, 42, 0.88);
+  border-radius: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.85);
+  padding: 12px 12px 10px;
+  background: rgba(15, 23, 42, 0.9);
   color: #e5e7eb;
   display: none;
   flex-direction: column;
   gap: 8px;
+}
+
+.new-entry-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.new-entry-header .badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
 }
 
 .new-entry-row {
@@ -375,6 +431,12 @@ button {
   outline: none;
 }
 
+.new-entry-panel input[type="text"]:focus,
+.new-entry-panel textarea:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.5);
+}
+
 .new-entry-panel input[type="file"] {
   font-size: 11px;
   color: #e5e7eb;
@@ -383,6 +445,11 @@ button {
 .new-entry-panel textarea {
   min-height: 70px;
   resize: vertical;
+}
+
+.new-entry-hint {
+  font-size: 11px;
+  color: #9ca3af;
 }
 
 .new-entry-actions {
@@ -422,25 +489,13 @@ button {
   padding: 24px 12px;
 }
 
-.entry-delete {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.75);
-  color: #e5e7eb;
-  border: 1px solid rgba(148, 163, 184, 0.8);
-  font-size: 11px;
-  padding: 2px 8px;
-}
-
 @media (max-width: 768px) {
   body {
     padding: 12px;
   }
   .page {
     padding: 18px 16px 16px;
-    border-radius: 22px;
+    border-radius: 26px;
   }
   .entry-card {
     grid-template-columns: minmax(0, 1fr);
