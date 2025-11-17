@@ -1,47 +1,39 @@
-const STORAGE_KEY = "de_tagebuch_entries_v1";
-const API_KEY_STORAGE = "de_tagebuch_openai_key";
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+// assets/app.js
+// Deutsch-Tagebuch + lokale KI-Korrektur mit WebLLM (keine API-Keys, kein Server)
 
-const openPanelBtn = document.getElementById("btn-open-panel");
-const panel = document.getElementById("new-entry-panel");
-const cancelBtn = document.getElementById("btn-cancel");
-const saveBtn = document.getElementById("btn-save");
-const titleInput = document.getElementById("title-input");
-const textInput = document.getElementById("text-input");
-const correctionInput = document.getElementById("correction-input");
-const imageInput = document.getElementById("image-input");
-const entriesContainer = document.getElementById("entries");
-const emptyHint = document.getElementById("empty-hint");
-const panelModeLabel = document.getElementById("panel-mode-label");
+import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 
-// API Key UI
-const apiPanel = document.getElementById("apikey-panel");
-const apiOpenBtn = document.getElementById("btn-api-key");
-const apiCloseBtn = document.getElementById("btn-api-close");
-const apiInput = document.getElementById("apikey-input");
-const apiSaveBtn = document.getElementById("btn-api-save");
-const apiDeleteBtn = document.getElementById("btn-api-delete");
+const STORAGE_KEY = "deutsch_tagebuch_entries_v2";
+
+const newEntryBtn = document.getElementById("new-entry-btn");
+const editorSection = document.getElementById("entry-editor");
+const entryForm = document.querySelector("[data-entry-form]");
+const titleInput = document.querySelector("[data-title-input]");
+const notesInput = document.querySelector("[data-notes-input]");
+const korrInput = document.querySelector("[data-korrektur-input]");
+const imageInput = document.querySelector("[data-image-input]");
+const cancelBtn = document.querySelector("[data-cancel-btn]");
+const saveBtn = document.querySelector("[data-save-btn]");
+const entriesList = document.querySelector("[data-entries-list]");
+const korrBtn = document.querySelector("[data-korrektur-btn]");
+const korrStatus = document.querySelector("[data-korrektur-status]");
+const modelStatus = document.querySelector("[data-model-status]");
 
 let entries = [];
-let editingEntryId = null;
+let editingId = null;
+let currentImageDataUrl = null;
 
-// Korrektur alanını kullanıcı değiştiremesin
-correctionInput.readOnly = true;
-
-// AI isteği için debounce
-let correctionTimer = null;
-let lastRequestedText = "";
-
-// ---------- Storage ----------
+// ----------------------
+// Lokale Datenspeicherung
+// ----------------------
 
 function loadEntries() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    entries = raw ? JSON.parse(raw) : [];
   } catch (e) {
-    console.error("Fehler beim Laden:", e);
-    return [];
+    console.error("Fehler beim Lesen aus localStorage:", e);
+    entries = [];
   }
 }
 
@@ -49,120 +41,153 @@ function saveEntries() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
 }
 
-function getApiKey() {
+// ----------------------
+// WebLLM – Lokales Modell
+// ----------------------
+
+let engine = null;
+let engineState = "idle"; // idle | loading | ready | error
+
+function setModelStatus(text) {
+  if (modelStatus) modelStatus.textContent = text;
+}
+
+function setKorrStatus(text) {
+  if (korrStatus) korrStatus.textContent = text;
+}
+
+async function ensureEngine() {
+  if (engineState === "ready" && engine) return engine;
+  if (engineState === "loading") {
+    // schon am Laden, einfach warten bis der Nutzer nochmal korrigiert
+    return null;
+  }
+
+  engineState = "loading";
+  setModelStatus("Modell wird geladen … (erstes Mal kann etwas dauern)");
+
+  const initProgressCallback = (report) => {
+    if (!report) return;
+    const p = Math.round((report.progress || 0) * 100);
+    setModelStatus(`Modell wird geladen … ${p}%`);
+  };
+
   try {
-    return localStorage.getItem(API_KEY_STORAGE) || "";
-  } catch {
-    return "";
+    // Kleines, relativ schnelles Modell
+    const selectedModel = "Phi-3-mini-4k-instruct-q4f16_1-MLC";
+    engine = await webllm.CreateMLCEngine(selectedModel, { initProgressCallback });
+    engineState = "ready";
+    setModelStatus("KI bereit (läuft lokal im Browser)");
+    return engine;
+  } catch (err) {
+    console.error("Fehler beim Laden von WebLLM:", err);
+    engineState = "error";
+    setModelStatus("Fehler beim Laden der KI (WebLLM)");
+    return null;
   }
 }
 
-function setApiKey(key) {
-  if (!key) {
-    localStorage.removeItem(API_KEY_STORAGE);
-  } else {
-    localStorage.setItem(API_KEY_STORAGE, key);
-  }
-}
+let korrTimeout = null;
 
-// ---------- Panel ----------
-
-function setPanelMode(mode) {
-  if (!panelModeLabel) return;
-  if (mode === "edit") {
-    panelModeLabel.textContent = "Eintrag bearbeiten";
-  } else {
-    panelModeLabel.textContent = "Neuer Eintrag";
-  }
-}
-
-function openPanel(mode = "new", entry = null) {
-  panel.style.display = "flex";
-
-  if (mode === "edit" && entry) {
-    editingEntryId = entry.id;
-    titleInput.value = entry.title || "";
-    textInput.value = entry.text || "";
-    correctionInput.value = entry.correction || "";
-    imageInput.value = "";
-    setPanelMode("edit");
-  } else {
-    editingEntryId = null;
-    titleInput.value = "";
-    textInput.value = "";
-    correctionInput.value = "";
-    imageInput.value = "";
-    setPanelMode("new");
-  }
-
-  titleInput.focus();
-}
-
-function closePanel() {
-  panel.style.display = "none";
-  editingEntryId = null;
-  titleInput.value = "";
-  textInput.value = "";
-  correctionInput.value = "";
-  imageInput.value = "";
-  setPanelMode("new");
-}
-
-openPanelBtn.addEventListener("click", () => openPanel("new"));
-cancelBtn.addEventListener("click", closePanel);
-
-// ---------- API Key Panel ----------
-
-function openApiPanel() {
-  const existing = getApiKey();
-  apiInput.value = existing || "";
-  apiPanel.style.display = "flex";
-  apiInput.focus();
-}
-
-function closeApiPanel() {
-  apiPanel.style.display = "none";
-}
-
-apiOpenBtn.addEventListener("click", openApiPanel);
-apiCloseBtn.addEventListener("click", closeApiPanel);
-
-apiSaveBtn.addEventListener("click", () => {
-  const val = apiInput.value.trim();
-  if (!val) {
-    alert("Bitte einen gültigen OpenAI API-Schlüssel eingeben (z.B. sk-...).");
+async function runCorrection() {
+  const text = notesInput.value.trim();
+  if (!text) {
+    setKorrStatus("");
+    korrInput.value = "";
     return;
   }
-  setApiKey(val);
-  closeApiPanel();
-});
+  if (engineState === "error") return;
 
-apiDeleteBtn.addEventListener("click", () => {
-  if (!confirm("Gespeicherten API-Schlüssel wirklich löschen?")) return;
-  setApiKey("");
-  apiInput.value = "";
-});
+  setKorrStatus("KI denkt …");
+  const eng = await ensureEngine();
+  if (!eng) {
+    setKorrStatus("KI konnte nicht geladen werden.");
+    return;
+  }
 
-// ---------- Formatierung ----------
+  try {
+    const messages = [
+      {
+        role: "system",
+        content:
+          "Du bist ein strenger Deutschlehrer. Korrigiere Grammatik, Rechtschreibung und Zeichensetzung des folgenden Textes. " +
+          "Gib NUR die korrigierte Version zurück, ohne Erklärungen und ohne Zusatzkommentare.",
+      },
+      { role: "user", content: text },
+    ];
 
-function escapeHtml(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    const result = await eng.chat.completions.create({
+      messages,
+      temperature: 0,
+    });
+
+    const corrected = result.choices?.[0]?.message?.content?.trim();
+    if (corrected) {
+      korrInput.value = corrected;
+      setKorrStatus("Korrigiert ✔ (lokale KI)");
+    } else {
+      setKorrStatus("Keine Antwort von der KI erhalten.");
+    }
+  } catch (err) {
+    console.error("Fehler bei der lokalen KI-Korrektur:", err);
+    setKorrStatus("Fehler bei der KI-Korrektur.");
+  }
 }
 
-function renderFormattedText(text) {
-  let safe = escapeHtml(text);
-  safe = safe.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  safe = safe.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  safe = safe.replace(/\n/g, "<br>");
-  return safe;
+// ----------------------
+// Bild-Handling
+// ----------------------
+
+imageInput.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) {
+    currentImageDataUrl = null;
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    currentImageDataUrl = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+// ----------------------
+// UI-Logik für Einträge
+// ----------------------
+
+function openEditor(entry = null) {
+  editorSection.setAttribute("aria-hidden", "false");
+  editorSection.classList.add("entry-editor--open");
+
+  if (entry) {
+    editingId = entry.id;
+    titleInput.value = entry.title || "";
+    notesInput.value = entry.notes || "";
+    korrInput.value = entry.correction || "";
+    currentImageDataUrl = entry.image || null;
+  } else {
+    editingId = null;
+    titleInput.value = "";
+    notesInput.value = "";
+    korrInput.value = "";
+    currentImageDataUrl = null;
+    imageInput.value = "";
+  }
+  setKorrStatus("");
 }
 
-function formatDate(value) {
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return "";
+function closeEditor() {
+  editorSection.setAttribute("aria-hidden", "true");
+  editorSection.classList.remove("entry-editor--open");
+  editingId = null;
+  entryForm.reset();
+  korrInput.value = "";
+  currentImageDataUrl = null;
+  setKorrStatus("");
+}
+
+function formatDate(iso) {
+  const d = iso ? new Date(iso) : new Date();
   return d.toLocaleDateString("de-DE", {
     day: "2-digit",
     month: "2-digit",
@@ -170,311 +195,157 @@ function formatDate(value) {
   });
 }
 
-// ---------- AI düzeltme isteği ----------
-
-async function requestCorrectionForCurrentText() {
-  const text = textInput.value.trim();
-  if (!text) {
-    correctionInput.value = "";
-    correctionInput.placeholder =
-      "Korrigierte Version – wird automatisch von der KI gefüllt (read-only).";
-    return;
-  }
-
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    correctionInput.placeholder =
-      "Bitte oben den OpenAI API-Schlüssel speichern.";
-    correctionInput.value = "";
-    return;
-  }
-
-  lastRequestedText = text;
-
-  try {
-    correctionInput.placeholder = "Korrektur wird geladen...";
-
-    const res = await fetch(OPENAI_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Du bist ein hilfreicher Deutschlehrer. Korrigiere den deutschen Text des Nutzers. " +
-              "Gib NUR die korrigierte Version zurück, ohne Erklärungen.",
-          },
-          {
-            role: "user",
-            content:
-              "Bitte korrigiere diesen deutschen Text. Gib nur die korrigierte Version zurück:\n\n" +
-              text,
-          },
-        ],
-        temperature: 0.1,
-      }),
-    });
-
-    if (!res.ok) {
-      console.error("API error", res.status);
-      correctionInput.placeholder =
-        "Fehler bei der KI-Korrektur (HTTP " + res.status + ")";
-      return;
-    }
-
-    const data = await res.json();
-    const corrected =
-      data.choices?.[0]?.message?.content?.trim?.() || "";
-
-    // Kullanıcı bu sırada metni değiştirdiyse, eski cevabı yazma
-    if (textInput.value.trim() === lastRequestedText) {
-      correctionInput.value = corrected;
-      correctionInput.placeholder =
-        "Korrigierte Version – automatisch von der KI.";
-    }
-  } catch (e) {
-    console.error("Fehler beim Abrufen der Korrektur:", e);
-    correctionInput.placeholder = "Keine Verbindung zur KI-API.";
-  }
-}
-
-// Yazarken 800 ms sonra otomatik iste
-textInput.addEventListener("input", () => {
-  const current = textInput.value.trim();
-  if (!current) {
-    correctionInput.value = "";
-    correctionInput.placeholder =
-      "Korrigierte Version – wird automatisch von der KI gefüllt (read-only).";
-    return;
-  }
-
-  if (correctionTimer) clearTimeout(correctionTimer);
-
-  correctionInput.placeholder = "Korrektur wird vorbereitet...";
-
-  correctionTimer = setTimeout(() => {
-    requestCorrectionForCurrentText();
-  }, 800);
-});
-
-// ---------- Render ----------
-
 function renderEntries() {
-  entriesContainer.innerHTML = "";
+  entriesList.innerHTML = "";
 
   if (!entries.length) {
-    const hint = document.createElement("div");
-    hint.className = "no-entries-hint";
-    hint.innerHTML =
-      'Noch keine Einträge. Klicke oben auf <strong>„Neuer Eintrag“</strong> und starte dein persönliches Deutsch-Tagebuch.';
-    entriesContainer.appendChild(hint);
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent =
+      "Noch keine Einträge. Klicke oben auf „Neuer Eintrag“, um zu starten.";
+    entriesList.appendChild(empty);
     return;
   }
 
   entries
     .slice()
-    .sort((a, b) => b.createdAt - a.createdAt)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
     .forEach((entry) => {
-      const article = document.createElement("article");
-      article.className = "entry-card";
-      article.dataset.id = entry.id;
+      const card = document.createElement("article");
+      card.className = "entry-card";
 
-      // Bild
-      const imageWrapper = document.createElement("div");
-      imageWrapper.className = "entry-image";
+      const imageHtml = entry.image
+        ? `<div class="entry-card-image">
+             <img src="${entry.image}" alt="Bild zum Eintrag" />
+             <div class="entry-chip entry-chip--bottom-left">Eintrag</div>
+           </div>`
+        : "";
 
-      if (entry.imageData) {
-        const img = document.createElement("img");
-        img.src = entry.imageData;
-        img.alt = entry.title || "Bild";
-        imageWrapper.appendChild(img);
-      } else {
-        imageWrapper.textContent =
-          "Kein Bild ausgewählt – du kannst beim nächsten Eintrag eins hinzufügen.";
-      }
-
-      const chip = document.createElement("div");
-      chip.className = "entry-chip";
-      const dot = document.createElement("span");
-      dot.className = "dot";
-      chip.appendChild(dot);
-      chip.appendChild(document.createTextNode("Eintrag"));
-      imageWrapper.appendChild(chip);
-
-      // Inhalt
-      const content = document.createElement("div");
-      content.className = "entry-content";
-
-      const meta = document.createElement("div");
-      meta.className = "entry-meta";
-      meta.innerHTML = `<span>📆 ${formatDate(
-        entry.createdAt
-      )}</span><span class="separator">•</span><span>Eigene Notizen</span>`;
-
-      const titleEl = document.createElement("div");
-      titleEl.className = "entry-title";
-      titleEl.textContent = entry.title || "Ohne Titel";
-
-      const textEl = document.createElement("div");
-      textEl.className = "entry-text";
-
-      if (entry.correction && entry.correction.trim() !== "") {
-        const correctedSafe = escapeHtml(entry.correction).replace(
-          /\n/g,
-          "<br>"
-        );
-        textEl.innerHTML = `<span class="sentence-with-hint" data-correction="${correctedSafe}">${renderFormattedText(
-          entry.text || ""
-        )}</span>`;
-      } else {
-        textEl.innerHTML = renderFormattedText(entry.text || "");
-      }
-
-      const tags = document.createElement("div");
-      tags.className = "entry-tags";
-      const tag = document.createElement("span");
-      tag.className = "entry-tag-pill";
-      tag.textContent = "Deutsch-Lernen";
-      tags.appendChild(tag);
-
-      content.appendChild(meta);
-      content.appendChild(titleEl);
-      content.appendChild(textEl);
-      content.appendChild(tags);
-
-      // Aktionen
-      const actions = document.createElement("div");
-      actions.className = "entry-actions";
-
-      const editBtn = document.createElement("button");
-      editBtn.className = "btn-chip";
-      editBtn.textContent = "Bearbeiten";
-      editBtn.addEventListener("click", () => startEdit(entry.id));
-
-      const delBtn = document.createElement("button");
-      delBtn.className = "btn-chip btn-chip--danger";
-      delBtn.textContent = "Löschen";
-      delBtn.addEventListener("click", () => deleteEntry(entry.id));
-
-      actions.appendChild(editBtn);
-      actions.appendChild(delBtn);
-
-      article.appendChild(imageWrapper);
-      article.appendChild(content);
-      article.appendChild(actions);
-
-      entriesContainer.appendChild(article);
+      card.innerHTML = `
+        <div class="entry-card-main">
+          ${imageHtml}
+          <div class="entry-card-content">
+            <div class="entry-card-meta">
+              <span class="entry-card-date">📅 ${formatDate(entry.createdAt)}</span>
+              <span class="entry-card-source">· Eigene Notizen</span>
+            </div>
+            <h2 class="entry-card-title">${entry.title || "Ohne Titel"}</h2>
+            <p class="entry-card-text">${entry.notes || ""}</p>
+            ${
+              entry.correction
+                ? `<p class="entry-card-correction">
+                     <span class="entry-card-correction-label">Korrigierte Version:</span>
+                     ${entry.correction}
+                   </p>`
+                : ""
+            }
+            <div class="entry-card-footer">
+              <span class="entry-tag">Deutsch-Lernen</span>
+              <div class="entry-card-actions">
+                <button class="btn-chip btn-chip--dark" data-edit="${entry.id}">Bearbeiten</button>
+                <button class="btn-chip btn-chip--danger" data-delete="${entry.id}">Löschen</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      entriesList.appendChild(card);
     });
 }
 
-// ---------- CRUD ----------
+// ----------------------
+// Event-Listener
+// ----------------------
 
-function addEntry({ title, text, correction, imageData }) {
-  const now = Date.now();
+newEntryBtn.addEventListener("click", () => openEditor());
+cancelBtn.addEventListener("click", () => closeEditor());
 
-  const entry = {
-    id: now.toString(),
-    title: title || "",
-    text: text || "",
-    correction: correction || "",
-    imageData: imageData || null,
-    createdAt: now,
-  };
+entryForm.addEventListener("submit", (e) => {
+  e.preventDefault();
 
-  entries.push(entry);
-  saveEntries();
-  renderEntries();
-}
+  const title = titleInput.value.trim() || "Ohne Titel";
+  const notes = notesInput.value.trim();
+  const correction = korrInput.value.trim();
 
-function updateEntry(id, { title, text, correction, imageData, keepImage }) {
-  const idx = entries.findIndex((e) => e.id === id);
-  if (idx === -1) return;
-
-  const existing = entries[idx];
-
-  entries[idx] = {
-    ...existing,
-    title: title ?? existing.title,
-    text: text ?? existing.text,
-    correction:
-      typeof correction === "string" ? correction : existing.correction || "",
-    imageData: keepImage
-      ? existing.imageData
-      : imageData !== undefined
-      ? imageData
-      : existing.imageData,
-  };
-
-  saveEntries();
-  renderEntries();
-}
-
-function deleteEntry(id) {
-  if (!confirm("Diesen Eintrag wirklich löschen?")) return;
-  entries = entries.filter((e) => e.id !== id);
-  saveEntries();
-  renderEntries();
-}
-
-function startEdit(id) {
-  const entry = entries.find((e) => e.id === id);
-  if (!entry) return;
-  openPanel("edit", entry);
-}
-
-// ---------- Speichern-Button ----------
-
-saveBtn.addEventListener("click", () => {
-  const title = titleInput.value.trim();
-  const text = textInput.value.trim();
-  const correction = correctionInput.value.trim();
-
-  if (!title && !text) {
-    alert("Bitte gib mindestens einen Titel oder Text ein.");
+  if (!notes) {
+    notesInput.focus();
     return;
   }
 
-  const isEdit = Boolean(editingEntryId);
-  const file = imageInput.files[0];
+  const nowIso = new Date().toISOString();
 
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageData = e.target.result;
-      if (isEdit) {
-        updateEntry(editingEntryId, {
-          title,
-          text,
-          correction,
-          imageData,
-        });
-      } else {
-        addEntry({ title, text, correction, imageData });
-      }
-      closePanel();
-    };
-    reader.readAsDataURL(file);
-  } else {
-    if (isEdit) {
-      updateEntry(editingEntryId, {
+  if (editingId) {
+    const idx = entries.findIndex((e) => e.id === editingId);
+    if (idx !== -1) {
+      entries[idx] = {
+        ...entries[idx],
         title,
-        text,
+        notes,
         correction,
-        keepImage: true,
-      });
-    } else {
-      addEntry({ title, text, correction, imageData: null });
+        image: currentImageDataUrl ?? entries[idx].image ?? null,
+        updatedAt: nowIso,
+      };
     }
-    closePanel();
+  } else {
+    entries.push({
+      id: crypto.randomUUID(),
+      title,
+      notes,
+      correction,
+      image: currentImageDataUrl ?? null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    });
+  }
+
+  saveEntries();
+  renderEntries();
+  closeEditor();
+});
+
+// Eintrag bearbeiten / löschen
+entriesList.addEventListener("click", (e) => {
+  const editId = e.target.getAttribute("data-edit");
+  const deleteId = e.target.getAttribute("data-delete");
+
+  if (editId) {
+    const entry = entries.find((x) => x.id === editId);
+    if (entry) openEditor(entry);
+  }
+
+  if (deleteId) {
+    if (confirm("Möchtest du diesen Eintrag wirklich löschen?")) {
+      entries = entries.filter((x) => x.id !== deleteId);
+      saveEntries();
+      renderEntries();
+    }
   }
 });
 
-// ---------- Initial ----------
+// KI-Korrektur per Button
+korrBtn.addEventListener("click", () => {
+  if (korrTimeout) clearTimeout(korrTimeout);
+  runCorrection();
+});
 
-entries = loadEntries();
+// KI-Korrektur beim Tippen (leicht verzögert)
+notesInput.addEventListener("input", () => {
+  setKorrStatus("");
+  korrInput.value = "";
+
+  if (korrTimeout) clearTimeout(korrTimeout);
+  // nur korrigieren, wenn man kurz aufgehört hat zu tippen
+  korrTimeout = setTimeout(() => {
+    if (notesInput.value.trim().length > 0) {
+      runCorrection();
+    }
+  }, 1500);
+});
+
+// ----------------------
+// Start
+// ----------------------
+
+loadEntries();
 renderEntries();
+setModelStatus("Lokales Modell wird bei Bedarf automatisch geladen.");
